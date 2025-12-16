@@ -1,0 +1,59 @@
+/**
+ * BTD Settings Page Styles
+ */
+
+.btd-settings-page .btd-settings-tabs {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    margin-top: 20px;
+}
+
+.btd-settings-page .nav-tab-wrapper {
+    border-bottom: 1px solid #c3c4c7;
+    margin: 0;
+    padding: 0;
+}
+
+.btd-settings-page .btd-settings-tab-content {
+    display: none;
+    padding: 20px;
+}
+
+.btd-settings-page .btd-settings-tab-content.active {
+    display: block;
+}
+
+.btd-settings-page .form-table {
+    margin-top: 0;
+}
+
+.btd-settings-page .submit {
+    padding: 20px;
+    margin: 0;
+    border-top: 1px solid #c3c4c7;
+    background: #f6f7f7;
+}
+
+/* Success/Error messages */
+.btd-settings-message {
+    display: none;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-left: 4px solid;
+    background: #fff;
+}
+
+.btd-settings-message.success {
+    border-left-color: #00a32a;
+    background: #f0f6fc;
+}
+
+.btd-settings-message.error {
+    border-left-color: #d63638;
+    background: #fcf0f1;
+}
+
+.btd-settings-message.show {
+    display: block;
+}

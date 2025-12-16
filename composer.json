@@ -1,6 +1,6 @@
 {
     "name": "btd/business-tools-suite",
-    "description": "Complete business tools suite with hybrid POD + Eloquent architecture",
+    "description": "Complete business tools suite with Eloquent architecture",
     "type": "wordpress-plugin",
     "require": {
         "php": "^8.1",

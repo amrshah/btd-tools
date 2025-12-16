@@ -10,30 +10,153 @@ use BTD\Tools\Core\Tool;
  * AI Tool Base Class
  * 
  * For AI-powered content generation tools
+ * Supports multiple AI providers: Gemini (default), OpenAI, Anthropic
  */
 abstract class AITool extends Tool {
     
-    protected $ai_provider = 'anthropic'; // or 'openai'
-    protected $model = 'claude-sonnet-4-20250514';
-    protected $max_tokens = 1500;
-    
     /**
-     * Call AI API
+     * Call AI API (auto-selects provider from settings)
      */
     protected function callAI($prompt, $system_prompt = null) {
-        $api_key = get_option('btd_anthropic_api_key');
+        // Get AI provider from settings
+        $provider = btd_get_setting('ai_provider', 'gemini');
+        
+        // Call appropriate provider
+        switch ($provider) {
+            case 'gemini':
+                return $this->callGemini($prompt, $system_prompt);
+            case 'openai':
+                return $this->callOpenAI($prompt, $system_prompt);
+            case 'anthropic':
+                return $this->callAnthropic($prompt, $system_prompt);
+            default:
+                throw new \Exception('Invalid AI provider configured');
+        }
+    }
+    
+    /**
+     * Call Google Gemini API
+     */
+    protected function callGemini($prompt, $system_prompt = null) {
+        $api_key = btd_get_setting('gemini_api_key');
         
         if (empty($api_key)) {
-            throw new \Exception('API key not configured');
+            throw new \Exception('Gemini API key not configured');
         }
+        
+        $model = btd_get_setting('gemini_model', 'gemini-pro');
+        $max_tokens = btd_get_setting('max_tokens', 4096);
+        $temperature = btd_get_setting('temperature', 0.7);
+        
+        // Build content parts
+        $parts = [];
+        if ($system_prompt) {
+            $parts[] = ['text' => $system_prompt];
+        }
+        $parts[] = ['text' => $prompt];
+        
+        $body = [
+            'contents' => [
+                ['parts' => $parts]
+            ],
+            'generationConfig' => [
+                'temperature' => $temperature,
+                'maxOutputTokens' => $max_tokens,
+            ]
+        ];
+        
+        $response = wp_remote_post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$api_key}", [
+            'headers' => [
+                'Content-Type' => 'application/json',
+            ],
+            'body' => json_encode($body),
+            'timeout' => btd_get_setting('api_timeout', 30),
+        ]);
+        
+        if (is_wp_error($response)) {
+            throw new \Exception($response->get_error_message());
+        }
+        
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        
+        if (isset($data['error'])) {
+            throw new \Exception($data['error']['message'] ?? 'Gemini API Error');
+        }
+        
+        return $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    }
+    
+    /**
+     * Call OpenAI API
+     */
+    protected function callOpenAI($prompt, $system_prompt = null) {
+        $api_key = btd_get_setting('openai_api_key');
+        
+        if (empty($api_key)) {
+            throw new \Exception('OpenAI API key not configured');
+        }
+        
+        $model = btd_get_setting('openai_model', 'gpt-4');
+        $max_tokens = btd_get_setting('max_tokens', 4096);
+        $temperature = btd_get_setting('temperature', 0.7);
+        
+        $messages = [];
+        if ($system_prompt) {
+            $messages[] = ['role' => 'system', 'content' => $system_prompt];
+        }
+        $messages[] = ['role' => 'user', 'content' => $prompt];
+        
+        $body = [
+            'model' => $model,
+            'messages' => $messages,
+            'max_tokens' => $max_tokens,
+            'temperature' => $temperature,
+        ];
+        
+        $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . $api_key,
+            ],
+            'body' => json_encode($body),
+            'timeout' => btd_get_setting('api_timeout', 30),
+        ]);
+        
+        if (is_wp_error($response)) {
+            throw new \Exception($response->get_error_message());
+        }
+        
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        
+        if (isset($data['error'])) {
+            throw new \Exception($data['error']['message'] ?? 'OpenAI API Error');
+        }
+        
+        return $data['choices'][0]['message']['content'] ?? '';
+    }
+    
+    /**
+     * Call Anthropic Claude API
+     */
+    protected function callAnthropic($prompt, $system_prompt = null) {
+        $api_key = btd_get_setting('anthropic_api_key');
+        
+        if (empty($api_key)) {
+            throw new \Exception('Anthropic API key not configured');
+        }
+        
+        $model = btd_get_setting('anthropic_model', 'claude-3-sonnet-20240229');
+        $max_tokens = btd_get_setting('max_tokens', 4096);
+        $temperature = btd_get_setting('temperature', 0.7);
         
         $messages = [
             ['role' => 'user', 'content' => $prompt]
         ];
         
         $body = [
-            'model' => $this->model,
-            'max_tokens' => $this->max_tokens,
+            'model' => $model,
+            'max_tokens' => $max_tokens,
+            'temperature' => $temperature,
             'messages' => $messages,
         ];
         
@@ -48,7 +171,7 @@ abstract class AITool extends Tool {
                 'anthropic-version' => '2023-06-01',
             ],
             'body' => json_encode($body),
-            'timeout' => 30,
+            'timeout' => btd_get_setting('api_timeout', 30),
         ]);
         
         if (is_wp_error($response)) {
@@ -58,7 +181,7 @@ abstract class AITool extends Tool {
         $data = json_decode(wp_remote_retrieve_body($response), true);
         
         if (isset($data['error'])) {
-            throw new \Exception($data['error']['message'] ?? 'API Error');
+            throw new \Exception($data['error']['message'] ?? 'Anthropic API Error');
         }
         
         return $data['content'][0]['text'] ?? '';
@@ -123,11 +246,11 @@ abstract class AITool extends Tool {
      * Save generation to database
      */
     protected function saveGeneration($inputs, $results) {
-        $tool = \BTD\PODSetup::getToolBySlug($this->slug);
+        $tool = \BTD\Models\Tool::getBySlug($this->slug);
         
         return Calculation::create([
             'user_id' => get_current_user_id() ?: 0,
-            'tool_id' => $tool ? $tool->id() : null,
+            'tool_id' => $tool ? $tool->id : null,
             'tool_slug' => $this->slug,
             'input_data' => $inputs,
             'result_data' => ['content' => $results],
