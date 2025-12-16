@@ -23,6 +23,12 @@ define('BTD_PLUGIN_BASENAME', plugin_basename(__FILE__));
 // Bootstrap Eloquent ORM
 require_once BTD_PLUGIN_DIR . 'bootstrap/eloquent.php';
 
+/**
+ * include tools below
+ */
+require_once BTD_PLUGIN_DIR . 'tools/financial/ROICalculator.php';
+
+
 // Autoload classes (or use Composer PSR-4)
 spl_autoload_register(function ($class) {
     if (strpos($class, 'BTD\\') !== 0) {
