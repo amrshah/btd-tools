@@ -146,8 +146,8 @@ class ROICalculator extends Calculator {
      * Register AJAX handlers
      */
     private function registerAjaxHandlers() {
-        add_action('wp_ajax_btd_calculate_roi', [$this, 'ajaxHandler']);
-        add_action('wp_ajax_nopriv_btd_calculate_roi', [$this, 'ajaxHandler']);
+        add_action('wp_ajax_btd_calculate_roi_calculator', [$this, 'ajaxHandler']);
+        add_action('wp_ajax_nopriv_btd_calculate_roi_calculator', [$this, 'ajaxHandler']);
     }
     
     /**
@@ -220,104 +220,6 @@ class ROICalculator extends Calculator {
                 </div>
             </div>
         </div>
-        
-        <script>
-        jQuery(document).ready(function($) {
-            $('.btd-roi-calculator form').on('submit', function(e) {
-                e.preventDefault();
-                
-                const $form = $(this);
-                const $btn = $form.find('button[type="submit"]');
-                const $results = $form.closest('.btd-tool-container').find('.btd-results');
-                
-                // Show loading state
-                $btn.prop('disabled', true).text('<?php _e('Calculating...', 'btd-tools'); ?>');
-                
-                $.ajax({
-                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                    type: 'POST',
-                    data: {
-                        action: 'btd_calculate_roi',
-                        nonce: $form.find('[name="nonce"]').val(),
-                        investment: $form.find('[name="investment"]').val(),
-                        final_value: $form.find('[name="final_value"]').val(),
-                        time_period: $form.find('[name="time_period"]').val(),
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            // Update result values
-                            const results = response.results;
-                            
-                            $results.find('[data-field="roi_percent"]').text(
-                                results.roi_percent + '%'
-                            );
-                            $results.find('[data-field="profit"]').text(
-                                '$' + results.profit.toLocaleString()
-                            );
-                            $results.find('[data-field="roi_annual"]').text(
-                                results.roi_annual + '%'
-                            );
-                            $results.find('[data-field="monthly_return"]').text(
-                                '$' + results.monthly_return.toLocaleString()
-                            );
-                            
-                            // Show results
-                            $results.slideDown();
-                            
-                            // Update remaining uses
-                            if (response.remaining >= 0) {
-                                $form.find('.remaining-uses').text(
-                                    '<?php _e('Remaining uses today:', 'btd-tools'); ?> ' + response.remaining
-                                );
-                            }
-                            
-                            // Scroll to results
-                            $('html, body').animate({
-                                scrollTop: $results.offset().top - 100
-                            }, 500);
-                            
-                        } else {
-                            // Handle errors
-                            if (response.error === 'upgrade_required') {
-                                showUpgradeModal();
-                            } else if (response.error === 'rate_limit') {
-                                alert(response.message);
-                            } else {
-                                alert('<?php _e('An error occurred. Please try again.', 'btd-tools'); ?>');
-                            }
-                        }
-                    },
-                    error: function() {
-                        alert('<?php _e('An error occurred. Please try again.', 'btd-tools'); ?>');
-                    },
-                    complete: function() {
-                        $btn.prop('disabled', false).text('<?php _e('Calculate', 'btd-tools'); ?>');
-                    }
-                });
-            });
-        });
-        
-        function btdExportPDF(btn) {
-            // TODO: Implement PDF export
-            alert('<?php _e('PDF export coming soon!', 'btd-tools'); ?>');
-        }
-        
-        function btdSaveResult(btn) {
-            // TODO: Implement save result
-            alert('<?php _e('Save feature coming soon!', 'btd-tools'); ?>');
-        }
-        
-        function btdResetCalculator(btn) {
-            const $container = $(btn).closest('.btd-tool-container');
-            $container.find('form')[0].reset();
-            $container.find('.btd-results').slideUp();
-        }
-        
-        function showUpgradeModal() {
-            // TODO: Implement upgrade modal
-            alert('<?php _e('Please upgrade your plan to access this tool.', 'btd-tools'); ?>');
-        }
-        </script>
         <?php
         return ob_get_clean();
     }
