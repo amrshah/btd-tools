@@ -1,6 +1,6 @@
 # BTD Business Tools Suite
 
-> A comprehensive WordPress plugin for building an all-in-one business tools platform with hybrid POD + Eloquent architecture.
+> A comprehensive WordPress plugin for building an all-in-one business tools platform with custom Eloquent architecture.
 
 [![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org/)
 [![PHP](https://img.shields.io/badge/PHP-8.1%2B-purple.svg)](https://php.net/)
@@ -19,7 +19,7 @@ BTD (Business Tools Directory) is a production-ready WordPress plugin that enabl
 - **Advanced Analytics**: Track usage, conversions, and user behavior
 - **Rate Limiting**: Freemium model with usage limits per tier
 - **Team Workspaces**: Collaboration features for business users
-- **Hybrid Architecture**: POD Framework + Eloquent ORM for best performance
+- **Custom Architecture**: Eloquent ORM + Custom Tables for best performance
 - **Modern UI**: React-ready with complete JavaScript framework
 - **Responsive Design**: Mobile-first, works on all devices
 
@@ -43,24 +43,26 @@ BTD (Business Tools Directory) is a production-ready WordPress plugin that enabl
 
 ## Architecture
 
-BTD uses a **hybrid architecture** combining the best of WordPress ecosystem with modern ORM patterns:
+BTD uses a **custom architecture** combining native WordPress features with modern ORM patterns:
 
 ```
 ┌─────────────────────────────────────────┐
-│       WordPress + POD Framework         │
+│              WordPress                  │
 │   (Content Management & Admin UI)       │
 │                                         │
-│  • Tools Catalog (Custom Post Type)    │
+│  • Tools Catalog (Custom Post Type)     │
 │  • Categories (Taxonomy)                │
-│  • Tool Metadata (Custom Fields)        │
+│  • Tool Metadata (Custom Meta Boxes)    │
+│  • Native WP Settings System            │
 │  • WordPress Users                      │
-│  • WooCommerce Subscriptions           │
+│  • WooCommerce Subscriptions            │
 └─────────────────────────────────────────┘
                     ↕
 ┌─────────────────────────────────────────┐
 │         Laravel Eloquent ORM            │
 │    (Application Data & Analytics)       │
 │                                         │
+│  • Tools & Categories (Custom Tables)   │
 │  • Calculations (Results Storage)       │
 │  • Usage Logs (Analytics)               │
 │  • Saved Results (Favorites)            │
@@ -69,10 +71,10 @@ BTD uses a **hybrid architecture** combining the best of WordPress ecosystem wit
 └─────────────────────────────────────────┘
 ```
 
-**Why Hybrid?**
-- POD: Familiar WordPress admin, easy content management
-- Eloquent: Fast queries, complex relationships, scalable to millions of records
-- Best of both worlds: WordPress ecosystem + modern database patterns
+**Why Custom Tables?**
+- Performance: Dedicated tables for tools and categories ensure fast queries
+- Eloquent: Modern ORM for complex relationships and scalability
+- No Dependencies: Removed reliance on third-party frameworks like Pods
 
 ---
 
@@ -83,7 +85,7 @@ BTD uses a **hybrid architecture** combining the best of WordPress ecosystem wit
 - **MySQL**: 5.7+ or 8.0+
 - **Composer**: For dependency management
 - **WooCommerce**: 6.0+ (for monetization)
-- **Pods Framework**: 2.8+ (free plugin)
+- **WooCommerce**: 6.0+ (for monetization)
 
 ### Recommended
 - **WooCommerce Subscriptions**: For recurring billing
@@ -113,7 +115,6 @@ composer install --no-dev --optimize-autoloader
 Via WordPress Admin:
 1. Go to **Plugins → Add New**
 2. Search and install:
-   - **Pods Framework** (required)
    - **WooCommerce** (required)
    - **WooCommerce Subscriptions** (optional, for recurring payments)
 
@@ -136,7 +137,6 @@ Or activate via **Plugins** page in WordPress admin.
 1. Go to **BTD Tools → Settings**
 2. Check **System Information**:
    - ✓ Eloquent Active
-   - ✓ POD Active
    - ✓ All tables created
 
 ---
@@ -450,11 +450,14 @@ protected $rate_limits = [
 ];
 ```
 
-### API Keys (for AI Tools)
+### AI Provider Configuration
 
-Go to **BTD Tools → Settings** and add:
-- Anthropic API Key (for Claude)
-- OpenAI API Key (optional)
+Go to **Business Tools → Settings → AI Settings** and configure your preferred provider:
+- **Google Gemini** (Default) - Requires API Key
+- **OpenAI** (GPT-4/3.5) - Requires API Key
+- **Anthropic** (Claude 3) - Requires API Key
+
+You can also adjust parameters like Temperature and Max Tokens globally.
 
 ---
 
@@ -576,7 +579,8 @@ See [Issues](https://github.com/your-username/btd-tools/issues) for complete lis
 - Core plugin architecture
 - Calculator, AI Tool, Generator base classes
 - Eloquent ORM integration
-- POD Framework integration
+- Custom Tables for Tools/Categories
+- Multi-Provider AI Support (Gemini, OpenAI, Anthropic)
 - Rate limiting system
 - WooCommerce integration
 - Complete admin dashboard
@@ -588,7 +592,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full history.
 ## Acknowledgments
 
 - [WordPress](https://wordpress.org/) - The platform
-- [Pods Framework](https://pods.io/) - Content management
+- [Pods Framework](https://pods.io/) - Inspiration for initial design
 - [Laravel Eloquent](https://laravel.com/docs/eloquent) - Database ORM
 - [WooCommerce](https://woocommerce.com/) - E-commerce
 - [Anthropic](https://anthropic.com/) - AI capabilities

@@ -47,6 +47,11 @@ register_activation_hook(__FILE__, function() {
     $runner = new \BTD\MigrationRunner(BTD_PLUGIN_DIR . 'database/migrations');
     $runner->runPending();
     
+    // Create settings table
+    require_once BTD_PLUGIN_DIR . 'includes/wp-plugin-settings-system.php';
+    $settings_db = new \Plugin_Settings_DB();
+    $settings_db->create_table();
+    
     // Flush rewrite rules
     flush_rewrite_rules();
     
