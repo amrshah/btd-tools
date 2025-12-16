@@ -1,0 +1,289 @@
+/**
+ * =============================================================================
+ * Frontend CSS FILE
+ * =============================================================================
+ * 
+ * Location: wp-content/plugins/btd-tools/assets/css/frontend.css
+ * Description: Styles for the frontend forms and results of BTD Business Tools Suite
+ * =============================================================================
+ */
+
+
+.btd-tool-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.btd-tool-inner {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 2rem;
+}
+
+@media (max-width: 768px) {
+    .btd-tool-inner {
+        grid-template-columns: 1fr;
+    }
+}
+
+.btd-calculator-form,
+.btd-ai-tool-form {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.btd-form-group {
+    margin-bottom: 1.5rem;
+}
+
+.btd-form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.btd-form-group input,
+.btd-form-group select,
+.btd-form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.btd-form-group input:focus,
+.btd-form-group select:focus,
+.btd-form-group textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btd-field-error {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.btd-field-help {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.btd-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btd-btn-primary {
+    background: #2563eb;
+    color: #fff;
+}
+
+.btd-btn-primary:hover {
+    background: #1d4ed8;
+}
+
+.btd-btn-secondary {
+    background: #6b7280;
+    color: #fff;
+}
+
+.btd-btn-outline {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.btd-results {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-top: 2rem;
+}
+
+.btd-results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.btd-result-card {
+    background: #f9fafb;
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.btd-result-card.highlight {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff;
+}
+
+.btd-result-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+.btd-result-card.highlight .btd-result-label {
+    color: rgba(255,255,255,0.9);
+}
+
+.btd-result-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #111827;
+}
+
+.btd-result-card.highlight .btd-result-value {
+    color: #fff;
+}
+
+.btd-results-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btd-results-actions button {
+    flex: 1;
+    min-width: 150px;
+}
+
+.btd-info-box {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.btd-info-box h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #111827;
+}
+
+.btd-notification {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    transform: translateX(400px);
+    transition: transform 0.3s;
+}
+
+.btd-notification.show {
+    transform: translateX(0);
+}
+
+.btd-notification-success {
+    background: #10b981;
+    color: #fff;
+}
+
+.btd-notification-error {
+    background: #dc2626;
+    color: #fff;
+}
+
+.btd-notification-warning {
+    background: #f59e0b;
+    color: #fff;
+}
+
+.btd-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.btd-modal.show {
+    opacity: 1;
+}
+
+.btd-modal-content {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 900px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.btd-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: #6b7280;
+}
+
+.btd-pricing-tiers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.tier {
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+}
+
+.tier.featured {
+    border-color: #2563eb;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.tier h3 {
+    margin-top: 0;
+}
+
+.tier .price {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 1rem 0;
+}
+
+.tier ul {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0;
+}
+
+.tier li {
+    padding: 0.5rem 0;
+}

@@ -1,0 +1,447 @@
+<?php
+/**
+ * =============================================================================
+ * Remaining Eloquent Models
+ * =============================================================================
+ * 
+ * FILES:
+ * 1. models/SavedResult.php
+ * 2. models/Workspace.php
+ * 3. models/WorkspaceMember.php
+ * 4. models/RateLimit.php
+ * =============================================================================
+ */
+
+/**
+ * FILE 1: SavedResult.php
+ * Location: wp-content/plugins/btd-tools/models/SavedResult.php
+ */
+
+namespace BTD\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class SavedResult extends Model {
+    
+    protected $table = 'btd_saved_results';
+    
+    protected $fillable = [
+        'user_id',
+        'calculation_id',
+        'tool_slug',
+        'result_name',
+        'result_data',
+        'is_favorite',
+        'is_shared',
+        'share_token',
+    ];
+    
+    protected $casts = [
+        'result_data' => 'array',
+        'is_favorite' => 'boolean',
+        'is_shared' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+    
+    /**
+     * Get the calculation
+     */
+    public function calculation() {
+        return $this->belongsTo(Calculation::class);
+    }
+    
+    /**
+     * Scope: By user
+     */
+    public function scopeByUser($query, $userId) {
+        return $query->where('user_id', $userId);
+    }
+    
+    /**
+     * Scope: Favorites
+     */
+    public function scopeFavorites($query) {
+        return $query->where('is_favorite', true);
+    }
+    
+    /**
+     * Scope: By tool
+     */
+    public function scopeByTool($query, $toolSlug) {
+        return $query->where('tool_slug', $toolSlug);
+    }
+    
+    /**
+     * Generate share token
+     */
+    public function generateShareToken() {
+        $this->share_token = bin2hex(random_bytes(16));
+        $this->is_shared = true;
+        $this->save();
+        
+        return $this->share_token;
+    }
+    
+    /**
+     * Get share URL
+     */
+    public function getShareUrl() {
+        if (!$this->is_shared || !$this->share_token) {
+            return null;
+        }
+        
+        return home_url('/shared-result/' . $this->share_token);
+    }
+    
+    /**
+     * Static: Find by share token
+     */
+    public static function findByShareToken($token) {
+        return static::where('share_token', $token)
+            ->where('is_shared', true)
+            ->first();
+    }
+}
+
+/**
+ * FILE 2: Workspace.php
+ * Location: wp-content/plugins/btd-tools/models/Workspace.php
+ */
+
+namespace BTD\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Workspace extends Model {
+    
+    protected $table = 'btd_workspaces';
+    
+    protected $fillable = [
+        'name',
+        'description',
+        'owner_id',
+        'settings',
+        'is_active',
+    ];
+    
+    protected $casts = [
+        'settings' => 'array',
+        'is_active' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+    
+    /**
+     * Get workspace members
+     */
+    public function members() {
+        return $this->hasMany(WorkspaceMember::class);
+    }
+    
+    /**
+     * Get workspace owner
+     */
+    public function owner() {
+        global $wpdb;
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT ID, user_login, user_email, display_name FROM {$wpdb->users} WHERE ID = %d",
+            $this->owner_id
+        ));
+    }
+    
+    /**
+     * Scope: Active workspaces
+     */
+    public function scopeActive($query) {
+        return $query->where('is_active', true);
+    }
+    
+    /**
+     * Scope: By owner
+     */
+    public function scopeByOwner($query, $ownerId) {
+        return $query->where('owner_id', $ownerId);
+    }
+    
+    /**
+     * Check if user is member
+     */
+    public function hasMember($userId) {
+        return $this->members()
+            ->where('user_id', $userId)
+            ->exists();
+    }
+    
+    /**
+     * Add member
+     */
+    public function addMember($userId, $role = 'member') {
+        return WorkspaceMember::create([
+            'workspace_id' => $this->id,
+            'user_id' => $userId,
+            'role' => $role,
+        ]);
+    }
+    
+    /**
+     * Remove member
+     */
+    public function removeMember($userId) {
+        return $this->members()
+            ->where('user_id', $userId)
+            ->delete();
+    }
+    
+    /**
+     * Get member role
+     */
+    public function getMemberRole($userId) {
+        $member = $this->members()
+            ->where('user_id', $userId)
+            ->first();
+        
+        return $member ? $member->role : null;
+    }
+    
+    /**
+     * Check if user has permission
+     */
+    public function userCan($userId, $permission) {
+        // Owner has all permissions
+        if ($this->owner_id == $userId) {
+            return true;
+        }
+        
+        $role = $this->getMemberRole($userId);
+        
+        $permissions = [
+            'owner' => ['manage', 'invite', 'remove', 'edit', 'view'],
+            'admin' => ['invite', 'edit', 'view'],
+            'member' => ['edit', 'view'],
+            'viewer' => ['view'],
+        ];
+        
+        return in_array($permission, $permissions[$role] ?? []);
+    }
+}
+
+/**
+ * FILE 3: WorkspaceMember.php
+ * Location: wp-content/plugins/btd-tools/models/WorkspaceMember.php
+ */
+
+namespace BTD\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class WorkspaceMember extends Model {
+    
+    protected $table = 'btd_workspace_members';
+    
+    public $timestamps = false;
+    
+    protected $fillable = [
+        'workspace_id',
+        'user_id',
+        'role',
+    ];
+    
+    protected $casts = [
+        'joined_at' => 'datetime',
+        'last_active_at' => 'datetime',
+    ];
+    
+    /**
+     * Boot method
+     */
+    protected static function boot() {
+        parent::boot();
+        
+        static::creating(function ($model) {
+            if (!$model->joined_at) {
+                $model->joined_at = now();
+            }
+        });
+    }
+    
+    /**
+     * Get the workspace
+     */
+    public function workspace() {
+        return $this->belongsTo(Workspace::class);
+    }
+    
+    /**
+     * Get the user
+     */
+    public function user() {
+        global $wpdb;
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT ID, user_login, user_email, display_name FROM {$wpdb->users} WHERE ID = %d",
+            $this->user_id
+        ));
+    }
+    
+    /**
+     * Update last active
+     */
+    public function updateLastActive() {
+        $this->last_active_at = now();
+        $this->save();
+    }
+    
+    /**
+     * Scope: By role
+     */
+    public function scopeByRole($query, $role) {
+        return $query->where('role', $role);
+    }
+    
+    /**
+     * Static: Get user's workspaces
+     */
+    public static function getUserWorkspaces($userId) {
+        return static::where('user_id', $userId)
+            ->with('workspace')
+            ->get()
+            ->pluck('workspace');
+    }
+}
+
+/**
+ * FILE 4: RateLimit.php
+ * Location: wp-content/plugins/btd-tools/models/RateLimit.php
+ */
+
+namespace BTD\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class RateLimit extends Model {
+    
+    protected $table = 'btd_rate_limits';
+    
+    public $timestamps = false;
+    
+    protected $fillable = [
+        'user_id',
+        'ip_address',
+        'tool_slug',
+        'period',
+        'count',
+        'reset_at',
+    ];
+    
+    protected $casts = [
+        'reset_at' => 'datetime',
+        'created_at' => 'datetime',
+    ];
+    
+    /**
+     * Boot method
+     */
+    protected static function boot() {
+        parent::boot();
+        
+        static::creating(function ($model) {
+            if (!$model->created_at) {
+                $model->created_at = now();
+            }
+        });
+    }
+    
+    /**
+     * Check if rate limit reached
+     */
+    public static function checkLimit($toolSlug, $limit, $period = 'day') {
+        $userId = get_current_user_id() ?: null;
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+        
+        $resetAt = static::getResetTime($period);
+        
+        // Find or create rate limit record
+        $record = static::where('tool_slug', $toolSlug)
+            ->where('period', $period)
+            ->where(function($query) use ($userId, $ipAddress) {
+                if ($userId) {
+                    $query->where('user_id', $userId);
+                } else {
+                    $query->where('ip_address', $ipAddress);
+                }
+            })
+            ->where('reset_at', '>', now())
+            ->first();
+        
+        if (!$record) {
+            // Create new record
+            static::create([
+                'user_id' => $userId,
+                'ip_address' => $ipAddress,
+                'tool_slug' => $toolSlug,
+                'period' => $period,
+                'count' => 1,
+                'reset_at' => $resetAt,
+            ]);
+            return true;
+        }
+        
+        if ($record->count >= $limit) {
+            return false;
+        }
+        
+        $record->increment('count');
+        return true;
+    }
+    
+    /**
+     * Get remaining uses
+     */
+    public static function getRemainingUses($toolSlug, $limit, $period = 'day') {
+        $userId = get_current_user_id() ?: null;
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+        
+        $record = static::where('tool_slug', $toolSlug)
+            ->where('period', $period)
+            ->where(function($query) use ($userId, $ipAddress) {
+                if ($userId) {
+                    $query->where('user_id', $userId);
+                } else {
+                    $query->where('ip_address', $ipAddress);
+                }
+            })
+            ->where('reset_at', '>', now())
+            ->first();
+        
+        if (!$record) {
+            return $limit;
+        }
+        
+        return max(0, $limit - $record->count);
+    }
+    
+    /**
+     * Get reset time
+     */
+    private static function getResetTime($period) {
+        switch ($period) {
+            case 'hour':
+                return now()->addHour()->startOfHour();
+            case 'day':
+                return now()->endOfDay();
+            case 'week':
+                return now()->endOfWeek();
+            case 'month':
+                return now()->endOfMonth();
+            default:
+                return now()->endOfDay();
+        }
+    }
+    
+    /**
+     * Clean up expired records
+     */
+    public static function cleanup() {
+        return static::where('reset_at', '<', now())->delete();
+    }
+}

@@ -1,0 +1,760 @@
+<?php
+/**
+ * =============================================================================
+ * Base Tool Classes
+ * =============================================================================
+ * 
+ * Location: wp-content/plugins/btd-tools/tools/core/
+ * 
+ * Files in this artifact:
+ * 1. Tool.php - Base abstract class
+ * 2. Calculator.php - For calculation tools
+ * 3. AITool.php - For AI-powered tools
+ * 4. Generator.php - For document/content generators
+ * =============================================================================
+ */
+
+namespace BTD\Tools\Core;
+
+use BTD\Models\Calculation;
+use BTD\Models\UsageLog;
+use BTD\Models\RateLimit;
+
+/**
+ * =============================================================================
+ * FILE 1: Tool.php (Base Class)
+ * =============================================================================
+ */
+
+/**
+ * Abstract Base Tool Class
+ * 
+ * All tools inherit from this class
+ */
+abstract class Tool {
+    
+    protected $slug;
+    protected $name;
+    protected $description;
+    protected $category;
+    protected $tier = 'free'; // free, starter, pro, business
+    protected $icon = 'dashicons-calculator';
+    protected $color = '#2563eb';
+    
+    // Rate limits (uses per period)
+    protected $rate_limits = [
+        'free' => ['day' => 10],
+        'starter' => ['day' => 100],
+        'pro' => ['day' => -1], // unlimited
+        'business' => ['day' => -1],
+    ];
+    
+    /**
+     * Check if user has access to this tool
+     */
+    public function checkAccess() {
+        // Free tools - everyone has access
+        if ($this->tier === 'free') {
+            return true;
+        }
+        
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            return false;
+        }
+        
+        // Check subscription tier
+        return $this->hasRequiredSubscription();
+    }
+    
+    /**
+     * Check if user has required subscription tier
+     */
+    protected function hasRequiredSubscription() {
+        $user_id = get_current_user_id();
+        
+        // Get user's active subscriptions (WooCommerce Subscriptions)
+        if (function_exists('wcs_user_has_subscription')) {
+            $tier_map = [
+                'starter' => ['starter', 'pro', 'business'],
+                'pro' => ['pro', 'business'],
+                'business' => ['business'],
+            ];
+            
+            $required_tiers = $tier_map[$this->tier] ?? [];
+            
+            foreach ($required_tiers as $tier) {
+                // Check if user has this subscription (adjust product IDs as needed)
+                if (wcs_user_has_subscription($user_id, '', 'active')) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check rate limit
+     */
+    public function checkRateLimit($period = 'day') {
+        $user_id = get_current_user_id() ?: null;
+        $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
+        
+        // Get user's tier
+        $user_tier = $this->getUserTier();
+        $limit = $this->rate_limits[$user_tier][$period] ?? 10;
+        
+        // Unlimited for pro/business
+        if ($limit === -1) {
+            return true;
+        }
+        
+        // Check current usage
+        $identifier = $user_id ?: $ip_address;
+        $reset_at = $this->getResetTime($period);
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'btd_rate_limits';
+        
+        $current = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table} 
+             WHERE tool_slug = %s 
+             AND period = %s 
+             AND (user_id = %d OR ip_address = %s)
+             AND reset_at > NOW()",
+            $this->slug,
+            $period,
+            $user_id,
+            $ip_address
+        ));
+        
+        if (!$current) {
+            // First use in this period
+            $wpdb->insert($table, [
+                'user_id' => $user_id,
+                'ip_address' => $ip_address,
+                'tool_slug' => $this->slug,
+                'period' => $period,
+                'count' => 1,
+                'reset_at' => $reset_at,
+            ]);
+            return true;
+        }
+        
+        if ($current->count >= $limit) {
+            return false; // Rate limit exceeded
+        }
+        
+        // Increment count
+        $wpdb->update(
+            $table,
+            ['count' => $current->count + 1],
+            ['id' => $current->id]
+        );
+        
+        return true;
+    }
+    
+    /**
+     * Get reset time for rate limit period
+     */
+    protected function getResetTime($period) {
+        switch ($period) {
+            case 'hour':
+                return date('Y-m-d H:00:00', strtotime('+1 hour'));
+            case 'day':
+                return date('Y-m-d 23:59:59');
+            case 'week':
+                return date('Y-m-d 23:59:59', strtotime('next sunday'));
+            case 'month':
+                return date('Y-m-t 23:59:59');
+            default:
+                return date('Y-m-d 23:59:59');
+        }
+    }
+    
+    /**
+     * Get user's subscription tier
+     */
+    protected function getUserTier() {
+        if (!is_user_logged_in()) {
+            return 'free';
+        }
+        
+        // Check WooCommerce subscriptions
+        // Adjust based on your product IDs
+        $user_id = get_current_user_id();
+        
+        if (function_exists('wcs_user_has_subscription')) {
+            if ($this->hasSubscriptionProduct($user_id, 'business')) return 'business';
+            if ($this->hasSubscriptionProduct($user_id, 'pro')) return 'pro';
+            if ($this->hasSubscriptionProduct($user_id, 'starter')) return 'starter';
+        }
+        
+        return 'free';
+    }
+    
+    /**
+     * Check if user has specific subscription product
+     */
+    protected function hasSubscriptionProduct($user_id, $tier) {
+        // Store product IDs in options or constants
+        $product_ids = get_option('btd_subscription_product_ids', [
+            'starter' => 0,
+            'pro' => 0,
+            'business' => 0,
+        ]);
+        
+        $product_id = $product_ids[$tier] ?? 0;
+        
+        if (!$product_id) {
+            return false;
+        }
+        
+        return wcs_user_has_subscription($user_id, $product_id, 'active');
+    }
+    
+    /**
+     * Track usage
+     */
+    protected function trackUsage($action = 'use', $metadata = []) {
+        UsageLog::log($this->slug, $action, $metadata);
+    }
+    
+    /**
+     * Get remaining uses for current user
+     */
+    public function getRemainingUses($period = 'day') {
+        $user_tier = $this->getUserTier();
+        $limit = $this->rate_limits[$user_tier][$period] ?? 10;
+        
+        if ($limit === -1) {
+            return -1; // unlimited
+        }
+        
+        $user_id = get_current_user_id() ?: null;
+        $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'btd_rate_limits';
+        
+        $current = $wpdb->get_var($wpdb->prepare(
+            "SELECT count FROM {$table} 
+             WHERE tool_slug = %s 
+             AND period = %s 
+             AND (user_id = %d OR ip_address = %s)
+             AND reset_at > NOW()",
+            $this->slug,
+            $period,
+            $user_id,
+            $ip_address
+        ));
+        
+        $used = $current ?: 0;
+        return max(0, $limit - $used);
+    }
+    
+    /**
+     * Abstract methods that tools must implement
+     */
+    abstract public function renderForm();
+    abstract public function process($inputs);
+    abstract public function renderResults($results);
+    
+    /**
+     * Get tool metadata
+     */
+    public function getMetadata() {
+        return [
+            'slug' => $this->slug,
+            'name' => $this->name,
+            'description' => $this->description,
+            'category' => $this->category,
+            'tier' => $this->tier,
+            'icon' => $this->icon,
+            'color' => $this->color,
+        ];
+    }
+}
+
+/**
+ * =============================================================================
+ * FILE 2: Calculator.php
+ * =============================================================================
+ */
+
+/**
+ * Calculator Base Class
+ * 
+ * For mathematical calculation tools
+ */
+abstract class Calculator extends Tool {
+    
+    protected $inputs = []; // Input field definitions
+    protected $outputs = []; // Output field definitions
+    
+    /**
+     * Validate inputs
+     */
+    protected function validateInputs($inputs) {
+        $errors = [];
+        
+        foreach ($this->inputs as $field => $config) {
+            $required = $config['required'] ?? true;
+            $type = $config['type'] ?? 'number';
+            $min = $config['min'] ?? null;
+            $max = $config['max'] ?? null;
+            
+            // Check required
+            if ($required && empty($inputs[$field])) {
+                $errors[$field] = sprintf(
+                    __('%s is required', 'btd-tools'),
+                    $config['label'] ?? $field
+                );
+                continue;
+            }
+            
+            // Type validation
+            switch ($type) {
+                case 'number':
+                    if (!is_numeric($inputs[$field])) {
+                        $errors[$field] = __('Must be a number', 'btd-tools');
+                    }
+                    break;
+                    
+                case 'integer':
+                    if (!filter_var($inputs[$field], FILTER_VALIDATE_INT)) {
+                        $errors[$field] = __('Must be a whole number', 'btd-tools');
+                    }
+                    break;
+                    
+                case 'email':
+                    if (!filter_var($inputs[$field], FILTER_VALIDATE_EMAIL)) {
+                        $errors[$field] = __('Must be a valid email', 'btd-tools');
+                    }
+                    break;
+            }
+            
+            // Range validation
+            if ($min !== null && $inputs[$field] < $min) {
+                $errors[$field] = sprintf(__('Must be at least %s', 'btd-tools'), $min);
+            }
+            
+            if ($max !== null && $inputs[$field] > $max) {
+                $errors[$field] = sprintf(__('Must be no more than %s', 'btd-tools'), $max);
+            }
+        }
+        
+        return $errors;
+    }
+    
+    /**
+     * Save calculation to database
+     */
+    protected function saveCalculation($inputs, $results) {
+        $tool = \BTD\PODSetup::getToolBySlug($this->slug);
+        
+        return Calculation::create([
+            'user_id' => get_current_user_id() ?: 0,
+            'tool_id' => $tool ? $tool->id() : null,
+            'tool_slug' => $this->slug,
+            'input_data' => $inputs,
+            'result_data' => $results,
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+        ]);
+    }
+    
+    /**
+     * Process calculation (template method)
+     */
+    public function process($inputs) {
+        // Check access
+        if (!$this->checkAccess()) {
+            return [
+                'success' => false,
+                'error' => 'upgrade_required',
+                'message' => __('Upgrade your plan to access this tool', 'btd-tools'),
+            ];
+        }
+        
+        // Check rate limit
+        if (!$this->checkRateLimit()) {
+            return [
+                'success' => false,
+                'error' => 'rate_limit',
+                'message' => __('Daily limit reached. Upgrade for unlimited access.', 'btd-tools'),
+                'remaining' => 0,
+            ];
+        }
+        
+        // Validate inputs
+        $errors = $this->validateInputs($inputs);
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'error' => 'validation',
+                'errors' => $errors,
+            ];
+        }
+        
+        // Perform calculation
+        try {
+            $results = $this->calculate($inputs);
+            
+            // Save to database
+            $calculation = $this->saveCalculation($inputs, $results);
+            
+            // Track usage
+            $this->trackUsage('calculate');
+            
+            return [
+                'success' => true,
+                'results' => $results,
+                'calculation_id' => $calculation->id,
+                'remaining' => $this->getRemainingUses(),
+            ];
+            
+        } catch (\Exception $e) {
+            error_log('BTD Calculator Error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => 'calculation',
+                'message' => __('An error occurred during calculation', 'btd-tools'),
+            ];
+        }
+    }
+    
+    /**
+     * Perform the actual calculation (must be implemented by child class)
+     */
+    abstract protected function calculate($inputs);
+    
+    /**
+     * Default form renderer
+     */
+    public function renderForm() {
+        ?>
+        <form class="btd-calculator-form" data-tool="<?php echo esc_attr($this->slug); ?>">
+            <?php wp_nonce_field('btd_tool_' . $this->slug, 'nonce'); ?>
+            
+            <div class="btd-form-fields">
+                <?php foreach ($this->inputs as $field => $config): ?>
+                    <div class="btd-form-group">
+                        <label for="<?php echo esc_attr($field); ?>">
+                            <?php echo esc_html($config['label']); ?>
+                            <?php if ($config['required'] ?? true): ?>
+                                <span class="required">*</span>
+                            <?php endif; ?>
+                        </label>
+                        
+                        <?php if ($config['type'] === 'select'): ?>
+                            <select 
+                                id="<?php echo esc_attr($field); ?>" 
+                                name="<?php echo esc_attr($field); ?>"
+                                <?php echo ($config['required'] ?? true) ? 'required' : ''; ?>
+                            >
+                                <?php foreach ($config['options'] as $value => $label): ?>
+                                    <option value="<?php echo esc_attr($value); ?>">
+                                        <?php echo esc_html($label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php else: ?>
+                            <input 
+                                type="<?php echo esc_attr($config['type'] ?? 'number'); ?>" 
+                                id="<?php echo esc_attr($field); ?>" 
+                                name="<?php echo esc_attr($field); ?>"
+                                placeholder="<?php echo esc_attr($config['placeholder'] ?? ''); ?>"
+                                <?php echo isset($config['min']) ? 'min="' . esc_attr($config['min']) . '"' : ''; ?>
+                                <?php echo isset($config['max']) ? 'max="' . esc_attr($config['max']) . '"' : ''; ?>
+                                <?php echo isset($config['step']) ? 'step="' . esc_attr($config['step']) . '"' : ''; ?>
+                                <?php echo ($config['required'] ?? true) ? 'required' : ''; ?>
+                            >
+                        <?php endif; ?>
+                        
+                        <?php if (isset($config['help'])): ?>
+                            <p class="btd-field-help"><?php echo esc_html($config['help']); ?></p>
+                        <?php endif; ?>
+                        
+                        <div class="btd-field-error"></div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <div class="btd-form-actions">
+                <button type="submit" class="btd-btn btd-btn-primary">
+                    <?php _e('Calculate', 'btd-tools'); ?>
+                </button>
+            </div>
+            
+            <div class="btd-rate-limit-info">
+                <span class="remaining-uses"></span>
+            </div>
+        </form>
+        <?php
+    }
+    
+    /**
+     * Default results renderer
+     */
+    public function renderResults($results) {
+        ?>
+        <div class="btd-results" style="display: none;">
+            <h3><?php _e('Results', 'btd-tools'); ?></h3>
+            
+            <div class="btd-results-grid">
+                <?php foreach ($this->outputs as $field => $config): ?>
+                    <div class="btd-result-card <?php echo $config['highlight'] ?? false ? 'highlight' : ''; ?>">
+                        <div class="btd-result-label">
+                            <?php echo esc_html($config['label']); ?>
+                        </div>
+                        <div class="btd-result-value" data-field="<?php echo esc_attr($field); ?>">
+                            --
+                        </div>
+                        <?php if (isset($config['help'])): ?>
+                            <div class="btd-result-help">
+                                <?php echo esc_html($config['help']); ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <div class="btd-results-actions">
+                <button class="btd-btn btd-btn-secondary" onclick="btdExportPDF(this)">
+                    <?php _e('Export PDF', 'btd-tools'); ?>
+                </button>
+                <button class="btd-btn btd-btn-secondary" onclick="btdSaveResult(this)">
+                    <?php _e('Save Result', 'btd-tools'); ?>
+                </button>
+                <button class="btd-btn btd-btn-outline" onclick="btdResetCalculator(this)">
+                    <?php _e('New Calculation', 'btd-tools'); ?>
+                </button>
+            </div>
+        </div>
+        <?php
+    }
+}
+
+/**
+ * =============================================================================
+ * FILE 3: AITool.php
+ * =============================================================================
+ */
+
+/**
+ * AI Tool Base Class
+ * 
+ * For AI-powered content generation tools
+ */
+abstract class AITool extends Tool {
+    
+    protected $ai_provider = 'anthropic'; // or 'openai'
+    protected $model = 'claude-sonnet-4-20250514';
+    protected $max_tokens = 1500;
+    
+    /**
+     * Call AI API
+     */
+    protected function callAI($prompt, $system_prompt = null) {
+        $api_key = get_option('btd_anthropic_api_key');
+        
+        if (empty($api_key)) {
+            throw new \Exception('API key not configured');
+        }
+        
+        $messages = [
+            ['role' => 'user', 'content' => $prompt]
+        ];
+        
+        $body = [
+            'model' => $this->model,
+            'max_tokens' => $this->max_tokens,
+            'messages' => $messages,
+        ];
+        
+        if ($system_prompt) {
+            $body['system'] = $system_prompt;
+        }
+        
+        $response = wp_remote_post('https://api.anthropic.com/v1/messages', [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'x-api-key' => $api_key,
+                'anthropic-version' => '2023-06-01',
+            ],
+            'body' => json_encode($body),
+            'timeout' => 30,
+        ]);
+        
+        if (is_wp_error($response)) {
+            throw new \Exception($response->get_error_message());
+        }
+        
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        
+        if (isset($data['error'])) {
+            throw new \Exception($data['error']['message'] ?? 'API Error');
+        }
+        
+        return $data['content'][0]['text'] ?? '';
+    }
+    
+    /**
+     * Process AI tool
+     */
+    public function process($inputs) {
+        // Check access
+        if (!$this->checkAccess()) {
+            return [
+                'success' => false,
+                'error' => 'upgrade_required',
+                'message' => __('Upgrade to access AI tools', 'btd-tools'),
+            ];
+        }
+        
+        // Check rate limit
+        if (!$this->checkRateLimit()) {
+            return [
+                'success' => false,
+                'error' => 'rate_limit',
+                'message' => __('Daily AI generation limit reached', 'btd-tools'),
+                'remaining' => 0,
+            ];
+        }
+        
+        try {
+            // Build prompt
+            $prompt = $this->buildPrompt($inputs);
+            
+            // Call AI
+            $content = $this->callAI($prompt);
+            
+            // Parse response
+            $results = $this->parseResponse($content);
+            
+            // Save to database
+            $this->saveGeneration($inputs, $results);
+            
+            // Track usage
+            $this->trackUsage('generate');
+            
+            return [
+                'success' => true,
+                'content' => $results,
+                'remaining' => $this->getRemainingUses(),
+            ];
+            
+        } catch (\Exception $e) {
+            error_log('BTD AI Tool Error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => 'generation',
+                'message' => __('AI generation failed', 'btd-tools'),
+            ];
+        }
+    }
+    
+    /**
+     * Save generation to database
+     */
+    protected function saveGeneration($inputs, $results) {
+        $tool = \BTD\PODSetup::getToolBySlug($this->slug);
+        
+        return Calculation::create([
+            'user_id' => get_current_user_id() ?: 0,
+            'tool_id' => $tool ? $tool->id() : null,
+            'tool_slug' => $this->slug,
+            'input_data' => $inputs,
+            'result_data' => ['content' => $results],
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+        ]);
+    }
+    
+    /**
+     * Build prompt (must be implemented by child class)
+     */
+    abstract protected function buildPrompt($inputs);
+    
+    /**
+     * Parse AI response (can be overridden)
+     */
+    protected function parseResponse($content) {
+        return $content;
+    }
+}
+
+/**
+ * =============================================================================
+ * FILE 4: Generator.php
+ * =============================================================================
+ */
+
+/**
+ * Generator Base Class
+ * 
+ * For document/content generators
+ */
+abstract class Generator extends Tool {
+    
+    protected $template = ''; // Template content
+    protected $placeholders = []; // Placeholder mapping
+    
+    /**
+     * Generate document
+     */
+    protected function generate($inputs) {
+        $content = $this->template;
+        
+        foreach ($this->placeholders as $placeholder => $callback) {
+            $value = is_callable($callback) ? 
+                     call_user_func($callback, $inputs) : 
+                     ($inputs[$callback] ?? '');
+            
+            $content = str_replace('{{' . $placeholder . '}}', $value, $content);
+        }
+        
+        return $content;
+    }
+    
+    /**
+     * Process generator
+     */
+    public function process($inputs) {
+        if (!$this->checkAccess()) {
+            return [
+                'success' => false,
+                'error' => 'upgrade_required',
+            ];
+        }
+        
+        if (!$this->checkRateLimit()) {
+            return [
+                'success' => false,
+                'error' => 'rate_limit',
+            ];
+        }
+        
+        try {
+            $content = $this->generate($inputs);
+            
+            $this->trackUsage('generate');
+            
+            return [
+                'success' => true,
+                'content' => $content,
+                'remaining' => $this->getRemainingUses(),
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'generation',
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
+}
