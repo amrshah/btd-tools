@@ -25,7 +25,7 @@ class Plugin_Settings_DB {
     public function __construct() {
         global $wpdb;
         $this->wpdb = $wpdb;
-        $this->table_name = $wpdb->prefix . 'plugin_settings';
+        $this->table_name = $wpdb->prefix . 'btdtools_settings';
     }
     
     /**
@@ -2045,36 +2045,7 @@ class Plugin_Settings_Admin {
     }
 }
 
-// ============================================
-// 4. INITIALIZATION
-// ============================================
-
-/**
- * Initialize the plugin settings system
- * 
- * Usage in your main plugin file:
- */
-function initialize_plugin_settings() {
-    // Initialize database
-    $db = new Plugin_Settings_DB();
-    
-    // Create table on activation
-    register_activation_hook(__FILE__, [$db, 'create_table']);
-    
-    // Initialize manager
-    $manager = new Plugin_Settings_Manager($db);
-    
-    // Initialize admin UI
-    if (is_admin()) {
-        new Plugin_Settings_Admin($manager);
-    }
-    
-    // Return manager for use throughout plugin
-    return $manager;
-}
-
-// Initialize
-$plugin_settings = initialize_plugin_settings();
+// Auto-initialization removed - handled by BTDSettings class
 
 // ============================================
 // 5. USAGE EXAMPLES
