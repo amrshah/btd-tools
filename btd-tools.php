@@ -35,10 +35,32 @@ spl_autoload_register(function ($class) {
         return;
     }
     
-    $class = str_replace('BTD\\', '', $class);
-    $class = str_replace('\\', '/', $class);
+    $relative_class = substr($class, 4); // Remove BTD\
+    $path = str_replace('\\', '/', $relative_class);
     
-    $file = BTD_PLUGIN_DIR . 'includes/' . $class . '.php';
+    // Define namespace mappings to directories
+    $mappings = [
+        'Models/' => 'models/',
+        'Tools/Core/' => 'tools/core/',
+        'Tools/Financial/' => 'tools/financial/',
+        'Tools/' => 'tools/',
+    ];
+    
+    $file = '';
+    $matched = false;
+    
+    foreach ($mappings as $prefix => $dir) {
+        if (strpos($path, $prefix) === 0) {
+            $file = BTD_PLUGIN_DIR . $dir . substr($path, strlen($prefix)) . '.php';
+            $matched = true;
+            break;
+        }
+    }
+    
+    // Default to includes directory
+    if (!$matched) {
+        $file = BTD_PLUGIN_DIR . 'includes/' . $path . '.php';
+    }
     
     if (file_exists($file)) {
         require_once $file;
