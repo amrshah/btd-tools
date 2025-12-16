@@ -34,8 +34,10 @@ spl_autoload_register(function ($class) {
     if (strpos($class, 'BTD\\') !== 0) {
         return;
     }
+    $class = str_replace('BTD\\', '', $class);
+    $relative_class = str_replace('\\', '/', $class);
     
-    $relative_class = substr($class, 4); // Remove BTD\
+    //$relative_class = substr($class, 4); // Remove BTD\
     $path = str_replace('\\', '/', $relative_class);
     
     // Define namespace mappings to directories
