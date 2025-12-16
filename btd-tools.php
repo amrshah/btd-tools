@@ -2,7 +2,7 @@
 /**
  * Plugin Name: BTD Business Tools Suite
  * Plugin URI: https://silverantmarketing.com/business-tools
- * Description: Complete business tools suite with hybrid POD + Eloquent architecture
+ * Description: Complete business tools suite with Eloquent ORM architecture
  * Version: 1.0.0
  * Author: Ali Raza 
  * License: GPL v2 or later
@@ -47,10 +47,6 @@ register_activation_hook(__FILE__, function() {
     $runner = new \BTD\MigrationRunner(BTD_PLUGIN_DIR . 'database/migrations');
     $runner->runPending();
     
-    // Setup POD custom post types
-    $pod_setup = new \BTD\PODSetup();
-    $pod_setup->register();
-    
     // Flush rewrite rules
     flush_rewrite_rules();
     
@@ -72,9 +68,17 @@ add_action('plugins_loaded', function() {
     // Load text domain
     load_plugin_textdomain('btd-tools', false, dirname(BTD_PLUGIN_BASENAME) . '/languages');
     
-    // Initialize POD setup
-    $pod_setup = new \BTD\PODSetup();
-    $pod_setup->init();
+    // Initialize custom post type and taxonomy
+    $post_type = new \BTD\ToolPostType();
+    $post_type->init();
+    
+    // Initialize meta boxes
+    $meta_boxes = new \BTD\ToolMetaBoxes();
+    $meta_boxes->init();
+    
+    // Initialize settings system
+    $settings = \BTD\BTDSettings::getInstance();
+    $settings->initializeDefaults();
     
     // Initialize tool registry
     $tool_registry = \BTD\ToolRegistry::getInstance();
@@ -82,6 +86,23 @@ add_action('plugins_loaded', function() {
     // Register core tools
     do_action('btd_register_tools', $tool_registry);
 });
+
+/**
+ * Helper function to get plugin settings
+ */
+function btd_get_setting($key, $default = null) {
+    $settings = \BTD\BTDSettings::getInstance();
+    return $settings->get($key, $default);
+}
+
+/**
+ * Helper function to set plugin settings
+ */
+function btd_set_setting($key, $value, $group = 'general') {
+    $settings = \BTD\BTDSettings::getInstance();
+    return $settings->set($key, $value, $group);
+}
+
 
 /**
  * Enqueue Admin Assets
@@ -291,126 +312,11 @@ function btd_analytics_page() {
 /**
  * Settings Page Callback
  */
-function btd_settings_page() {
-    // Save settings
-    if (isset($_POST['btd_save_settings'])) {
-        check_admin_referer('btd_settings_nonce');
-        
-        update_option('btd_anthropic_api_key', sanitize_text_field($_POST['anthropic_api_key']));
-        update_option('btd_enable_analytics', isset($_POST['enable_analytics']));
-        update_option('btd_enable_rate_limiting', isset($_POST['enable_rate_limiting']));
-        
-        echo '<div class="notice notice-success"><p>' . __('Settings saved!', 'btd-tools') . '</p></div>';
-    }
-    
-    $anthropic_key = get_option('btd_anthropic_api_key', '');
-    $enable_analytics = get_option('btd_enable_analytics', true);
-    $enable_rate_limiting = get_option('btd_enable_rate_limiting', true);
-    
-    ?>
-    <div class="wrap">
-        <h1><?php _e('BTD Tools Settings', 'btd-tools'); ?></h1>
-        
-        <form method="post" action="">
-            <?php wp_nonce_field('btd_settings_nonce'); ?>
-            
-            <table class="form-table">
-                <tr>
-                    <th scope="row">
-                        <label for="anthropic_api_key"><?php _e('Anthropic API Key', 'btd-tools'); ?></label>
-                    </th>
-                    <td>
-                        <input type="text" 
-                               id="anthropic_api_key" 
-                               name="anthropic_api_key" 
-                               value="<?php echo esc_attr($anthropic_key); ?>" 
-                               class="regular-text"
-                               placeholder="sk-ant-...">
-                        <p class="description">
-                            <?php _e('Required for AI-powered tools. Get your key from', 'btd-tools'); ?>
-                            <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>
-                        </p>
-                    </td>
-                </tr>
-                
-                <tr>
-                    <th scope="row"><?php _e('Analytics', 'btd-tools'); ?></th>
-                    <td>
-                        <label>
-                            <input type="checkbox" 
-                                   name="enable_analytics" 
-                                   <?php checked($enable_analytics); ?>>
-                            <?php _e('Enable usage analytics', 'btd-tools'); ?>
-                        </label>
-                    </td>
-                </tr>
-                
-                <tr>
-                    <th scope="row"><?php _e('Rate Limiting', 'btd-tools'); ?></th>
-                    <td>
-                        <label>
-                            <input type="checkbox" 
-                                   name="enable_rate_limiting" 
-                                   <?php checked($enable_rate_limiting); ?>>
-                            <?php _e('Enable rate limiting for free users', 'btd-tools'); ?>
-                        </label>
-                    </td>
-                </tr>
-            </table>
-            
-            <p class="submit">
-                <input type="submit" 
-                       name="btd_save_settings" 
-                       class="button button-primary" 
-                       value="<?php _e('Save Settings', 'btd-tools'); ?>">
-            </p>
-        </form>
-        
-        <hr>
-        
-        <h2><?php _e('System Information', 'btd-tools'); ?></h2>
-        <table class="form-table">
-            <tr>
-                <th><?php _e('Plugin Version', 'btd-tools'); ?></th>
-                <td><?php echo BTD_VERSION; ?></td>
-            </tr>
-            <tr>
-                <th><?php _e('WordPress Version', 'btd-tools'); ?></th>
-                <td><?php echo get_bloginfo('version'); ?></td>
-            </tr>
-            <tr>
-                <th><?php _e('PHP Version', 'btd-tools'); ?></th>
-                <td><?php echo phpversion(); ?></td>
-            </tr>
-            <tr>
-                <th><?php _e('Eloquent Status', 'btd-tools'); ?></th>
-                <td>
-                    <?php
-                    try {
-                        \BTD\Models\Calculation::count();
-                        echo '<span style="color: green;">✓ Active</span>';
-                    } catch (Exception $e) {
-                        echo '<span style="color: red;">✗ Error: ' . esc_html($e->getMessage()) . '</span>';
-                    }
-                    ?>
-                </td>
-            </tr>
-            <tr>
-                <th><?php _e('POD Status', 'btd-tools'); ?></th>
-                <td>
-                    <?php
-                    if (function_exists('pods')) {
-                        echo '<span style="color: green;">✓ Active</span>';
-                    } else {
-                        echo '<span style="color: red;">✗ Not Installed</span>';
-                    }
-                    ?>
-                </td>
-            </tr>
-        </table>
-    </div>
-    <?php
-}
+/**
+ * Deprecated: Settings are now handled by BTDSettings class
+ */
+// function btd_settings_page() { ... }
+// function btd_settings_page() { ... }
 
 /**
  * REST API Endpoints

@@ -72,11 +72,12 @@ abstract class Calculator extends Tool {
      * Save calculation to database
      */
     protected function saveCalculation($inputs, $results) {
-        $tool = \BTD\PODSetup::getToolBySlug($this->slug);
+        // Get tool using Eloquent model
+        $tool = \BTD\Models\Tool::getBySlug($this->slug);
         
         return Calculation::create([
             'user_id' => get_current_user_id() ?: 0,
-            'tool_id' => $tool ? $tool->id() : null,
+            'tool_id' => $tool ? $tool->id : null,
             'tool_slug' => $this->slug,
             'input_data' => $inputs,
             'result_data' => $results,

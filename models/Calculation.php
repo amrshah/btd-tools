@@ -30,6 +30,15 @@ class Calculation extends Model {
     ];
     
     /**
+     * Relationships
+     */
+    
+    // Tool (belongs to)
+    public function tool() {
+        return $this->belongsTo(Tool::class, 'tool_id');
+    }
+    
+    /**
      * Get the user (WordPress user)
      * Note: This returns a stdClass object, not a full WP_User
      */
@@ -44,14 +53,10 @@ class Calculation extends Model {
     }
     
     /**
-     * Get the tool (POD)
+     * Get the tool (Eloquent relationship)
      */
     public function getTool() {
-        if (!function_exists('pods')) {
-            return null;
-        }
-        
-        return pods('btd_tool', $this->tool_id);
+        return $this->tool;
     }
     
     /**

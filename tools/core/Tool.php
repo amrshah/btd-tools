@@ -179,12 +179,12 @@ abstract class Tool {
      * Check if user has specific subscription product
      */
     protected function hasSubscriptionProduct($user_id, $tier) {
-        // Store product IDs in options or constants
-        $product_ids = get_option('btd_subscription_product_ids', [
-            'starter' => 0,
-            'pro' => 0,
-            'business' => 0,
-        ]);
+        // Get product IDs from settings
+        $product_ids = [
+            'starter' => btd_get_setting('starter_product_id', 0),
+            'pro' => btd_get_setting('pro_product_id', 0),
+            'business' => btd_get_setting('business_product_id', 0),
+        ];
         
         $product_id = $product_ids[$tier] ?? 0;
         
