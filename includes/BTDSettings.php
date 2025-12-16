@@ -14,7 +14,7 @@ class BTDSettings {
     
     private function __construct() {
         // Load the settings system
-        require_once BTD_PLUGIN_DIR . 'includes/wp-plugin-settings-system.php';
+        require_once BTD_PLUGIN_DIR . 'lib/wp-plugin-settings-system.php';
         
         // Initialize settings
         $db = new \Plugin_Settings_DB();

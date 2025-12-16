@@ -7,7 +7,7 @@
         "illuminate/database": "^10.0",
         "illuminate/events": "^10.0",
         "illuminate/pagination": "^10.0",
-        "nesbot/carbon": "^2.67"
+        "nesbot/carbon": "^2.72.2"
     },
     "autoload": {
         "psr-4": {

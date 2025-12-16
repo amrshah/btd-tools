@@ -76,7 +76,7 @@ register_activation_hook(__FILE__, function() {
     $runner->runPending();
     
     // Create settings table
-    require_once BTD_PLUGIN_DIR . 'includes/wp-plugin-settings-system.php';
+    require_once BTD_PLUGIN_DIR . 'lib/wp-plugin-settings-system.php';
     $settings_db = new \Plugin_Settings_DB();
     $settings_db->create_table();
     
