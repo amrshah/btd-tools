@@ -433,7 +433,7 @@ new ROICalculator();
  *                 className="w-full px-4 py-2 border rounded-lg"
  *                 placeholder="12"
  *                 required
- *               />
+ *               /> 
  *             </div>
  *             
  *             <button

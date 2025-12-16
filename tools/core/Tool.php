@@ -5,7 +5,7 @@ namespace BTD\Tools\Core;
 use BTD\Models\Calculation;
 use BTD\Models\UsageLog;
 use BTD\Models\RateLimit;
-
+ 
 /**
  * Abstract Base Tool Class
  * 

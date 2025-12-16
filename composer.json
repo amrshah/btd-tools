@@ -11,8 +11,9 @@
     "autoload": {
         "psr-4": {
             "BTD\\": "includes/",
-            "BTD\\Models\\": "models/",
-            "BTD\\Tools\\": "tools/"
+            "BTD\\Models\\": "./models",
+            "BTD\\Tools\\Core\\": "./tools/core",
+            "BTD\\Tools\\Financial\\": "./tools/financial"
         }
     },
     "config": {

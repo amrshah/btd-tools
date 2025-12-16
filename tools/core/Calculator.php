@@ -107,7 +107,7 @@ abstract class Calculator extends Tool {
                 'remaining' => 0,
             ];
         }
-        
+         
         // Validate inputs
         $errors = $this->validateInputs($inputs);
         if (!empty($errors)) {

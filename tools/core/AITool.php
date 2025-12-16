@@ -1,5 +1,4 @@
 <?php
-
 namespace BTD\Tools\Core;
 
 use BTD\Models\Calculation;
