@@ -38,7 +38,8 @@ class PODSetup {
      * Register Tools Custom Post Type
      */
     private function registerToolsCPT() {
-        pods_register_type('btd_tool', [
+        // Add 'post_type' as the first argument
+        pods_register_type('post_type', 'btd_tool', [
             'label' => __('Business Tools', 'btd-tools'),
             'label_singular' => __('Tool', 'btd-tools'),
             'public' => true,
@@ -70,7 +71,8 @@ class PODSetup {
      * Register Tool Categories Taxonomy
      */
     private function registerToolCategories() {
-        pods_register_taxonomy('btd_tool_category', 'btd_tool', [
+       // Note the \ before the function name and the 'taxonomy' string added first
+        \pods_register_type('taxonomy', 'btd_tool_category', [
             'label' => __('Tool Categories', 'btd-tools'),
             'label_singular' => __('Tool Category', 'btd-tools'),
             'public' => true,
