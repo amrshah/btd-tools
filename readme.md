@@ -604,7 +604,7 @@ Need help with BTD? We offer:
 - **Monthly Retainer**: $1,000-5,000/mo
 - **White-Label License**: Contact us
 
-Email: support@example.com
+Email: amr.shah@gmail.com
 
 ---
 
@@ -614,7 +614,7 @@ This project is licensed under the GPL v2 or later - see the [LICENSE](LICENSE) 
 
 ```
 BTD Business Tools Suite
-Copyright (C) 2024 Your Name
+Copyright (C) 2025 Amr Shah
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -638,7 +638,7 @@ If BTD helps you build your business, consider:
 - Suggest new features
 - Submit pull requests
 - Share with others
-- [Buy me a coffee](https://buymeacoffee.com/yourname)
+- [Buy me a coffee](https://buymeacoffee.com/amrshah)
 
 ---
 
