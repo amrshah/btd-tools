@@ -88,6 +88,11 @@ class ROICalculator extends Calculator {
             ],
         ];
         
+        // Register tool with registry
+        if (function_exists('BTD\btd_register_tool')) {
+            \BTD\btd_register_tool($this);
+        }
+
         // Register AJAX handlers
         $this->registerAjaxHandlers();
         
